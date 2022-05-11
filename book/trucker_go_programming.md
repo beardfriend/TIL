@@ -2039,3 +2039,259 @@ func sum(nums ...int) int { // 가변 인수를 받는 함수.
 변수에 함수를 넣음.
 
 ## 21.4. 함수 리터럴
+
+# 22. 자료구조
+
+자료구조란 여러 데이터를 저장하는 구조를 말한다.
+앞서 배운 배열, 슬라이스도 자료구조의 일종이다.
+
+- 리스트 : 비연속 메모리를 사용해 요소를 저장. 요소 삽입과 삭제가 배열보다 빠르다.
+- 큐 : FIFO 구조로 먼저 입력한 요소가 먼저 출력된다
+- 스택 : FILO 구조로 가장 마지막에 입력한 요소가 먼저 출력된다.
+- 링 : 처음과 끝이 연결된 리스트로 크기가 고정된 구조이다.
+- 맵 : 키와 값 형태로 자료가 저장되는 자료구조다.
+
+## 22.1. 리스트
+
+리스트는 기본 자료구조로서 여러 데이터를 보관할 수 있다.
+배열과 가장 큰 차이점은 배열은 연속된 메모리에 데이터를 저장하는 반면,
+리스트는 불연속된 메모리에 데이터를 저장한다는 거다.
+
+### 22.1.1. 포인터로 연결된 요소
+
+리스트는 각 데이터를 담고 있는 요소들을 포인터로 연결한 자료구조다.
+요소들이 포인터로 연결됐다고 해서 링크드 리스트라고 부르기도 한다.
+리스트를 구현하는 구조체 코드를 살펴보자.
+
+```go
+type Element struct { //구조체
+  Value interface{} // 데이터를 저장하는 필드
+  Next *Element // 다음 요소의 주소를 저장하는 필드
+  Prev *Element // 이전 요소의 주소를 저장하는 필드
+}
+```
+
+다음 요소뿐만 아니라 이전 요소에도 접근 가능하기 때문에
+양방향 리스트라고 부른다.
+리스트는 각 Element주소가 일관성이 없다.
+불연속 자료구조다.
+
+### 22.1.2. 리스트 기본 사용법
+
+```go
+package main
+import (
+  "fmt"
+  "container/list"
+  )
+func main(){
+  v := list.New() // 새로운 리스트 생성
+  e4 := v.PushBack(4) // 리스트 뒤에 요소 추가
+  e1 := v.PushFront(1) // 리스트 앞에 요소 추가
+  v.InsertBefore(3, e4) // e4 요소 앞에 요소 삽입
+  v.InsertAfter(2, e1) // e1 요소 뒤에 요소 삽입
+
+  for e := v.Front(); e != nil; e = e.Next() { // 각 요소 순회
+    fmt.Print(e.Value, " ")
+  }
+
+  fmt.Println()
+  for e := v.Back(); e != nil; e = e.Prev() {
+    fmt.Print(e.Value, " ")
+  }
+}
+
+ 1 2 3 4
+ 4 3 2 1
+```
+
+## 22.1.3. 배열 vs 리스트
+
+배열과 리스트는 모두 여러 요소들을 저장할 수 있는 자료구조다.
+또 이 둘은 스택, 큐, 트리 등 다른 자료구조의 기본적인 형태로 사용되기 때문에
+모든 자료구조의 기본이 되는 자료구조라고 볼 수 있다.
+
+둘의 차이점을 이해하면 상황에 알맞게 자료구조를 선택할 수 있다.
+
+배열은 맨 앞에 값을 추가하기 위해서는 모든 값을 1칸씩 뒤로 미뤄야 한다.
+O(N)이다.
+반면에 리스트는 맨 앞에 요소를 추가하고 연결만 해주면 된다.
+
+배열과 리스트 각 상활별 Big-O 표기법
+
+요소 삽입 : 배열 :O(N) 리스트 : O(1)
+요소 삭제 : 배열 : O(N) 리스트 : O(1)
+인덱스 접근 배열 O(1) 리스트 O(N)
+
+**데이터 지역성**
+
+데이터 지역성은 데이터가 밀집한 정도를 말한다.
+데이터 로컬리티라고도 한다.
+배열과 리스트를 선택할 때 데이터 지역성을 고려해야 한다.
+컴퓨터는 연산할 때 읽어온 데이터를 캐시라는 임시 저장소에 보관한다.
+이때 정확히 필요한 데이터만 가져오는 게 아니라 그 주변 데이터를 같이 가져온다.
+그 이유는 보통 연산이 일어난 다음에 높은 확률로 주변 데이터에 대한 연산이 이어지기 때문이다.
+
+그래서 필요한 데이터가 인접해 있을수록 처리 속도가 빨라지는데,
+이를 데이터 지역성이 좋다고 말한다.
+배열은 연속된 메모리로 이뤄진 자료구조고 리스트는 불연속이기 때문에
+배열이 리스트에 비해서 데이터 지역성이 월등하게 좋다.
+
+### 22.1.4. 큐 구현하기
+
+큐는 대기열 작업이나 명령 큐처럼 순서가 유지되어야 하는 경우에 자주 사용된다.
+큐는 배열과 리스트 중 무엇으로도 만들 수 있다.
+하지만 출력값이 맨 앞에서 발생하기 떄문에 배열로 만들면 요소를 빼낼 때마다
+O(N)의 성능이 필요하다. 반면 리스트로 만들면 O(1) 성능을 보장하기 때문에
+더 빠르게 처리할 수 있어서 리스트가 큐를 만들 떄 더 효율적이다.
+
+```go
+package main
+
+import (
+  "fmt"
+  "container/list"
+)
+
+type Queue struct {
+  v *list.list
+}
+
+func (q *Queue) Push(val interface{}) { // 요소 추가
+  q.v.PushBack(val)
+}
+
+func (q *Queue) Pop() interface {
+  front := q.v.Front()
+  if front !=nil {
+    return q.v.Remove(front)
+  }
+  return nil
+}
+
+func NewQueue() *Queue {
+  return &Queue{ list.New()}
+}
+
+func main () {
+  queue := NewQueue()
+
+  for i :=1; i <5; i++ {
+    queue.Push(i)
+  }
+  v := queue.Pop()
+  for v != nil {
+    fmt.Printf("%v ->",v)
+    v = queue.Pop()
+  }
+}
+
+```
+
+### 22.1.5. 스택 구현하기
+
+```go
+package main
+
+import (
+  "fmt"
+  "container/list"
+)
+
+type Stack struct {
+  v *list.List
+}
+
+func NewStack() *Stack {
+  return &Stack{ list.New() }
+}
+
+func (s *Stack) Push(val interface{}) {
+  s.v.PushBack(val) // 맨 뒤 요소 추가
+}
+func (s *Stack) Pop() interface{} {
+  back := s.v.Back()
+  if back != nil {
+    return s.v.Remove(back)
+  }
+  return nil
+}
+
+func main() {
+  stack : NewStack()
+  for i:=1; i<5; i++{
+    stack.Push(i)
+  }
+  val := stack.Pop()
+  for val != nil {
+    fmt.Printf("%v ->", val)
+    val =stack.Pop()
+  }
+}
+
+4 -> 3 -> 2 ->1
+```
+
+## 22.2. 링
+
+링은 맨 뒤의 요소와 맨 앞의 요소가 서로 연결된 자료구조다.
+리스트를 기반으로 만들어진 자료구조로, 원형으로 연결되기 떄문에 링이라 부른다.
+링에서는 시작과 끝이 없고 다만 현재 위치만 있을 뿐이다.
+
+```go
+package main
+
+import (
+  "container/ring"
+  "fmt"
+)
+
+func main() {
+  r := ring.New(5)
+
+  n := r.len()
+
+  for i:=0; i <n; i++ {
+    r.Value = 'A' + i
+    r = r.Next()
+  }
+
+  for j :=0; j < n; j++ {
+    fmt.Printf("%c ",r.Value)
+    r= r.Next()
+  }
+
+  fmt.Println()
+
+  for j:=0; j< n; j++ {
+    fmt.Printf("%c ", r.Value)
+    r = r.Prev()
+  }
+}
+
+```
+
+### 22.2.1. 링은 언제 쓸까?
+
+링은 저장할 개수가 고정되고, 오래된 요소는 지워도 되는 경우에 적합하다.
+예를들어 MS워드는 Ctrl+Z를 눌러서 실행 취소를 할 수 있다.
+이 기능을 지원하려면 지금까지 쓴 내용을 보관하고 있어야 한다.
+
+## 22.3. 맵
+
+맵은 키와 값 형태로 데이터를 저장하는 자료구조다.
+언어에 따라 딕셔너리, 해시테이블, 해시맵 등으로 부른다.
+
+```go
+for k, v := range m {
+  fmt.Println(k,v)
+}
+```
+
+k = key, v = Value
+
+맵을 사용하면 키, 값 쌍으로 되어 있는 데이터를 매우 빠르게 처리할 수 있다.
+
+# 23. 에러
+
+## 23.1. 에러 반환
