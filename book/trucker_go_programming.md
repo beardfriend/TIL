@@ -180,6 +180,21 @@
     - [25.1.7. select 문](#2517-select-문)
     - [25.1.8. 일정 간격으로 실행](#2518-일정-간격으로-실행)
     - [25.1.9. 채널로 생산자 소비자 패턴 구현하기](#2519-채널로-생산자-소비자-패턴-구현하기)
+  - [25.2. 컨텍스트 사용하기](#252-컨텍스트-사용하기)
+    - [25.2.1. 작업 취소가 가능한 컨텍스트](#2521-작업-취소가-가능한-컨텍스트)
+    - [25.2.3. 특정 값을 설정한 컨텍스트](#2523-특정-값을-설정한-컨텍스트)
+- [27.1 객체지향 설계 5가지 원칙 SOLID](#271-객체지향-설계-5가지-원칙-solid)
+  - [27.2. 단일 책임 원칙](#272-단일-책임-원칙)
+  - [27.3. 개방-폐쇄 원칙](#273-개방-폐쇄-원칙)
+  - [27.4. 리스코프 치환 원칙](#274-리스코프-치환-원칙)
+  - [27.5. 인터페이스 분리 원칙](#275-인터페이스-분리-원칙)
+  - [27.6. 의존 관계 역전 원칙](#276-의존-관계-역전-원칙)
+- [28. 테스트](#28-테스트)
+- [B. 생각하는 프로그래밍](#b-생각하는-프로그래밍)
+  - [B.1. Go는 객체지향 언어인가?](#b1-go는-객체지향-언어인가)
+    - [B.1.1. 상속](#b11-상속)
+    - [B.1.2. 메서드 오버라이딩](#b12-메서드-오버라이딩)
+    - [B.4. 값 타입을 쓸 것인가? 포인터를 쓸 것인가?](#b4-값-타입을-쓸-것인가-포인터를-쓸-것인가)
 
 # 1. 컴퓨터 원리
 
@@ -2740,7 +2755,7 @@ var chan string messages = make(chan string, 2)
 
 ```go
 select{
-  case n := <- ch1: 
+  case n := <- ch1:
     ... // ch1 채ㅓㄹ에서 데이터를 빼낼 수 있을 때 실행
   case n2 := <-ch2:
     ... // ch2 채널에서 데이터를 빼낼 수 있을 때 실행
@@ -2786,6 +2801,14 @@ func main() {
   paintCh := make(chan *Car)
 
   fmt.Printf("Start Factory\n")
+
+  wg.Add(3)
+  go MakeBody(tireCh)
+  go InstallTire(tireCh, paintCh)
+  go PaintCar(paintCh)
+
+  wg.Wait()
+  fmt.Println("Close the factory")
 }
 
 
@@ -2807,8 +2830,385 @@ func MakeBody(tireCh chan *Car) { // 차체 생산
   }
 }
 
-func InstallTire(tireCh,paintCh chan *Car) { // 바퀴 설치
+func InstallTire(tireCh,paintCh chan *Car) { // 바퀴 설
+  for car := range tireCh {
+    // Make a body
+    time.Sleep(time.Second)
+    car.Tire = "Winter tire"
+    paintCh <- car
+  }
+  wg.Done()
+  close(paintCh)
+}
 
+func PaintCar(paintCh chan *Car) {// 도색
+ for car := range paintCh {
+   //Make a body
+   time.Sleep(time.Second)
+   car.Color = "Red"
+   duration := time.Now().SUb(startTime)
+   fmt.Printf("%.2f COmplete Car: %s %s %s\n", duration.Seconds(), car.Body, car.Tire, car.Color)
+ }
+ wg.Done()
 }
 
 ```
+
+## 25.2. 컨텍스트 사용하기
+
+컨텍스트는 context 패키지에서 제공하는 기능으로 작업을 지시할 때 작업 가능 시간,
+작업 취소 등의 조건을 지시할 수 있는 작업 명세서 역할을 한다.
+새로운 고루틴으로 작업을 시작할 때 일정 시간 동안만 작업을 지시하거나
+외부에서 작업을 취소할 때 사용한다.
+또한 작업 설정에 관한 데이터를 전달할 수도 있다.
+
+### 25.2.1. 작업 취소가 가능한 컨텍스트
+
+```go
+package main
+import (
+  "fmt"
+  "sync"
+  "time"
+  "context"
+)
+
+var wg sync.WaitGroup
+
+func main() {
+  wg.Add(1)
+  ctx, cancel := context.WithCancel(context.Background())
+  go PrintEveySecond(ctx)
+  time.Sleep(5*time.Second)
+  cancel()
+  wg.Wait()
+}
+
+func PrintEverySecond(ctx context.Context) {
+  tick := time.Tick(time.Second)
+  for {
+    select {
+      case <- ctx.Done();
+        wg.Done()
+        return
+      case <-tick:
+        fmt.Println("Tick")
+    }
+  }
+}
+
+```
+
+취소 가능한 컨텍스를 생성한다.
+context().WithCancel()함수로 취소 가능한 컨텍스트를 생성했다.
+상위 컨텍스트를 인수로 넣으면 그 컨텍스트를 감싼 새로운 컨텍스트를 만들어준다.
+상위 컨텍스트가 없다면 가장 기본적인 컨텍스트인 context.Background()를 넣어준다.
+
+context.WithCancel() 함수는 값을 두 개 반환하는데 첫 번째가 컨텍스트 객체고
+두 번째가 취소 함수다.
+두번째 취소 함수를 사용해서 원할 때 취소할 수 있다.
+
+### 25.2.3. 특정 값을 설정한 컨텍스트
+
+떄론 작업자에게 작업을 지시할 때 지시사항을 추가하고 싶을 수가 있다.
+그래서 컨텍스트에 특정 키로 값을 읽어올 수 있도록 설정할 수 있다.
+
+```go
+package main
+
+import (
+  "context"
+  "fmt"
+  "sync"
+)
+
+var wg sync.WaitGroup
+
+func main() {
+  wg.Add(1)
+
+  ctx := context.WithValue(context.Background(), "number", 9)
+  go square(ctx)
+
+  wg.Wait()
+}
+
+func square(ctx context.Context) {
+  if v := ctx.Value("number"); v != nil {
+    n := v.(int)
+    fmt.Print("Square:%d", n*n)
+  }
+  wg.Done()
+}
+
+```
+
+- 채널은 고루틴 간 메세지를 전달하는 메세지 큐다.
+- 채널을 이용해서 뮤텍스 없이 동시성 프로그래밍을 할 수 있다.
+- 생산자 소비자 패턴은 동시성 프로그래밍에서 많이 사용된다. 채널을 이용해서 구현할 수 있다.
+- 컨텍스트는 작업자에게 일을 지시할 때 사용하는 작업 명세서다.
+- 컨텍스트를 활용해서 특정 시간 동안 작업을 지시하거나 외부에서 취소할 수 있다.
+- 채널을 제때 닫아주지 않으면 무한히 대기하는 좀비 루틴을이 생성되어 프로그램 성능이
+  저하되고 메모리 사용이 계속 증가되는 문제가 발생할 수 있다.
+
+# 27.1 객체지향 설계 5가지 원칙 SOLID
+
+- 단일 책임 원칙
+- 개방-폐쇄 원칙
+- 리스코프 치환 원칙
+- 인터페이스 분리 원칙
+- 의존 관계 역전 원칙
+
+**왜 설계를 잘해야 하는가**
+SOLID를 알아보기 앞서서 왜 설계가 중요한가 살펴보겠습니다.
+설계는 프로그램 코드를 이루는 각 모듈 간 의존 관계를 정의하는 겁니다.
+현대 프로그래밍은 과거에 비해서 매우 복잡하다.
+과게어는 슈퍼 프로그래머 한두 명이 프로그램을 완성했지만 지금은 일부 스타트업을 제외하고
+수십에서 수백 명이 각자의 맡은 바 코드를 구현한다.
+맡은 바 코드를 모듈 단위로 볼 수 있는데, 이러한 모듈이 모여 프로그램을 이루다 보니까
+설계를 잘하지 않으면 많은 문제가 발생할 수 있다.
+
+**나쁜 설계**
+
+- 경직성
+  - 모듈간의 결합도가 너무 높아서 코드를 변경하기 매우 어려운 구조
+  - 의존 성이 높다.
+- 부서지기 쉬웁
+  - 한 부분을 건드렸더니 프로그램이 망가지는 경우
+- 부동성
+  - 코드 일부분을 현재 어플리케이션에서 분리해서 다른 프로젝트에도 쓰고 싶지만
+    결함도가 너무 높아서 옮길 수 없는 경우
+
+나쁜 설계의 반대는 좋은 설계다.
+
+## 27.2. 단일 책임 원칙
+
+모든 객체는 책임을 하나만 져야 한다.
+
+```go
+type Report interface { // Report() 메서드를 포함한 Report 인터페이스
+  Report() string
+}
+
+type FinanceReport struct { // 경제 보고서를 담당하는 FinanaceReport
+  report string
+}
+
+func (r *FinanceReport) Report() string { // Report 인터페이스를 구현
+  return r.report
+}
+
+type ReportSender struct { //보고서 전송을 담당.
+  ...
+}
+
+func (s *ReportSender) SendReport(report Report) {
+  //Report 인터페이스 객체를 인수로 받음.
+}
+
+```
+
+단일 책임원칙으로 보면 FinanceReport는 경제 보고서만을 책임지고 있고,
+ReportSender는 보고서 전송이라는 책임 하나만을 지고 있다.
+향후 다른 보고서가 나오더라도 Report 인터페이스만 구현하면 ReportSender를 그대로 이용할 수 있다.
+
+## 27.3. 개방-폐쇄 원칙
+
+확장에는 열려있고 변경에는 닫혀있다.
+
+이점 : 상호 결합도를 줄여 새 기능을 추가할 때 기존 구현을 변경하지 않아도 된다.
+
+```go
+type ReportSender interface {
+  Send(r *Report)
+}
+
+type EmailSender struct {
+ // 이메일 전송
+}
+
+func (e *EmailSender) Send(r *Report) {
+
+}
+
+type FaxSender struct {
+
+}
+
+func (f *FaxSender) Send(r *Report) {
+// 펙스 전송
+}
+
+```
+
+EmailSender와 FaxSender는 모두 ReportSender라는 인터페이스를 구현한 객체다.
+여기에 새로운 전송 방식을 추가하면 어떻게 될까?
+ReportSender를 구현한 새로운 객체를 추가해주면 된다.
+
+## 27.4. 리스코프 치환 원칙
+
+정의 :
+q(x)를 타입 T의 객체 x에 대해 증명할 수 있는 속성이라고 하자. 그렇다면 S가 T의 하위 타입이라면
+q(y)는 타입 S의 객체 y에 대해 증명할 수 있어야 한다.
+
+```go
+type T interface {
+  Something()
+}
+
+type S struct {
+}
+
+func (s *S) Something() {
+}
+
+type U struct {
+}
+
+func (u *U) Something() {
+}
+
+func q(t T) {
+}
+
+var y = &S{}
+var u = &U{}
+```
+
+q는 S와 U 모두 잘 동작해야 된다는 얘기
+
+## 27.5. 인터페이스 분리 원칙
+
+클라이언트는 자신이 이용하지 않는 메서드에 의존하지 않아야 한다.
+
+```go
+type Report interface {
+  Report() string
+  Pages() int
+  Author() String
+  WrittenDate() time.Time
+}
+
+func SendReport(r Report) {
+  send(r.Report())
+}
+```
+
+Report 인터페이스는 메서드를 총 4개 포함한다.
+하지만 SendReport()는 Report 인터페이스가 포함한 4개 메서드 중에
+Report()메서드만 사용한다.
+즉 인터페이스 이용자에게 불필요한 메서드들을 인터페이스가 포함하고 있다.
+
+```go
+type Report interface{
+  Report() string
+}
+
+type WrittenInfo interface{
+  Pages() int
+  AUthor() string
+  WrittenDate() time.Time
+}
+
+func SendReport(r Report){
+  send(r.Report())
+}
+
+```
+
+## 27.6. 의존 관계 역전 원칙
+
+SOLID에서 가장 중요한 원칙으로 단일 책임 원칙과 함께 의존 관계 역전 원칙을 꼽을 수 있습니다.
+의존 관계 역전 원칙은 다음과 같은 정의와 두 가지 원칙을 가지고 있습니다.
+
+상위 계층이 하위 계층에 의존하는 전통적인 의존 관계를 반전(역전)시킴으로써 상위 계층이
+하위 계층의 구현으로부터 독립되게 할 수 있다.
+
+- 구체화된 모듈이 아닌 추상 모듈에 의존함으로써 확정성이 증가한다.
+- 상호 결합도가 낮아져서 다른 프로그램으로 이식성이 증가한다.
+
+대개는 해결책을 찾을 때 위에서 아래로 내려가며 사고하는 경향이 있다.
+
+전혀 다른방식으로 해결해야 한다.
+
+키보드 입력이라는 추상 모듈을 구현하고, 네트워크 출력이라는 추상 모듈을 구현하고 있다.
+전송 모듈은 구체회된 객체인 키보드가 네트워크가 아닌 추상화된 입력과 출력 모듈을 사용한다.
+
+이렇게 의존 관계를 역전하게 되면, 결합도가 낮아지면서 새로운 모듈을 붙히기도 쉽고
+떼어내기도 쉽다.
+
+# 28. 테스트
+
+- Go 언어 자체에서 테스트 코드 작성과 실행을 지원한다.
+- 테스트 코드 3가지 규칙을 기억하세요.
+  - \_test.go로 끝나는 파일 안에 존재해야 합니다.
+  - testing 패키지를 가져와야 한다.
+  - func TestXxxx(t \*testing.T)형식으로 작성해야 한다.
+- go test 명령으로 테스트를 실행합니다.
+- 테스트는 많을수록 촘촘할수록 좋습니다.
+- 테스트 주도 개발은 자연스럽게 테스트 코드들을 작성하게 도와줍니다.
+- 벤치마크는 코드 성능을 측정하는 방법입니다.
+- 벤치마크 코드는 func BenchmarkXxxx(b \*testing.B)형식으로 작성해야 합니다.
+
+# B. 생각하는 프로그래밍
+
+## B.1. Go는 객체지향 언어인가?
+
+어떤 사람은 Go 언어는 객체지향 언어가 아니라고 한다.
+그 이유는 객체지향 언어들의 특징인 상속을 지원하지 않기 때문이다.
+객체지향 언어는 상속 지원 여부보다, 말 그대로 객체 간의 상호작용을 중심으로 한 프로그래밍에 있다.
+Go 언어는 상속을 지원하는 다른 언어보다 발전한 형태의 객체지향 언어이다.
+그 이유는 상속이 객체지향 설계를 깰 수 있는 많은 문제점을 가지고 있는데,
+이를 지원하지 않아 문제를 미연에 방지했기 때문이다.
+
+### B.1.1. 상속
+
+상속이란 기존 객체를 확장하여 새로운 객체를 정의하는 기능을 말한다.
+
+### B.1.2. 메서드 오버라이딩
+
+메서드 오버라이딩이란 자식 객체에서 부모 객체의 메서드 기능을 변경하여
+다시 정의하는 행위를 말한다.
+
+상속은 리스코프 원칙을 어기기 쉽다.
+상속은 강력한 의존관계를 형성한다.
+상속 관계는 포함 관계보다 더 의존적이다.
+
+### B.4. 값 타입을 쓸 것인가? 포인터를 쓸 것인가?
+
+```go
+// 값 타입
+type Temperature struct {
+  Value int
+  Type string
+}
+
+func NewTemperature(v int, t string) Temperature {
+  return Temperature{ Value:v, Type:t}
+}
+
+// 학생을 나타내는 포인터
+type Student struct {
+  Age int
+  Name string
+}
+
+func NewStudent(age int, name string) *Student {
+  return &Student{ Age: age, Name:name}
+}
+
+func (s *Student) AddAge(a int) {
+  s.Age += a
+}
+```
+
+성능에는 거의 차이가 없다.
+객체 성격에 따라 사용하면 된다.
+
+예를들어 10도를 나타내는 Temperature가 있을 때 여기에 5도를 더해서 15도를 나타내는 Temperature를 생성한다고 해보면,
+그럼 10도의 Temperature 객체와 15도의 Temperature를 같은 객체로 볼 것인가 여부가
+값 타입으로 사용하는 게 맞는지 포인터로 사용하는 게 맞는지를 결정한다.
+== 서로 다른 객체가 되어야 한다.
+
+Student는 한 살을 먹었다고 다른 학생이 되지는 않는다.
+즉 내부 상태가 바뀌어도 여전히 객체가 유지되기 때문에 Student는 포인터가 더 어울린다.
