@@ -17,6 +17,7 @@
 # 도서
 
 - [프로그래머 수학으로 생각하라](book/programmer_math_think.md)
+- [go 프로그래밍](book/trucker_go_programming.md)
 
 # 강의
 
