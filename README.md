@@ -5,6 +5,8 @@
 # 리눅스
 
 - [scp 원격 파일전송](linux/scp.md)
+- [ssh](linux/ssh.md)
+- [chmod](linux/mix.md###chmod)
 
 # 웹
 
