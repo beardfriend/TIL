@@ -283,7 +283,7 @@ if문을 사용할 수 있다. 재빠르게 조건식을 만들고 조건이 참
 
 **벤 다이어 그램**
 
-[](../assets/book/math_01.jpg)
+![](../assets/book/math_01.jpg)
 
 ### 베타적 논리합 : A 또는 B (그러나 둘 다는 아님)
 
@@ -303,7 +303,7 @@ A와 B 한쪽만이 true일 때 true가 되나 양쪽이 모두 true라면 false
 $$A \oplus B $$
 
 
-[](../assets/book/math_02.jpg)
+![](../assets/book/math_02.jpg)
 
 베타적 논리 합은 회로도에 사용된다.
 
