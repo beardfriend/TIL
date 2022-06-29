@@ -49,7 +49,7 @@ go env -w  === change the default settings of the named enviroment
 없을 경우 휘발 됨.
 
 ```bash
-GOPRIVATE=bitbucket.org/sgr_hosting/microsvc_libraries
+GOPRIVATE=bitbucket.org/${bucket_name}/${repo_name}
 ```
 
 # git tag version
